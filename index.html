@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1.1.1.1 Termo-Monitor</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* VISUAL INSPIRADO NO 1.1.1.1 (CLOUDFLARE WARP) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #101010; /* Fundo escuro profundo */
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 360px;
+        }
+
+        /* Título no estilo da logo 1.1.1.1 */
+        .logo {
+            font-size: 38px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #ff6b4a, #ff4071);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitulo {
+            font-size: 14px;
+            color: #888888;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        /* O Bloco Central - Temperatura Atual */
+        .card-principal {
+            background-color: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            padding: 40px 20px;
+            border-radius: 28px;
+            margin-bottom: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            transition: border-color 0.3s;
+        }
+
+        .card-principal:hover {
+            border-color: #ff5252;
+        }
+
+        .label-atual {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #ff6b4a;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .display-temperatura {
+            font-size: 62px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            margin: 0;
+            color: #ffffff;
+        }
+
+        /* Grid de Estatísticas (Mínima e Máxima) */
+        .grid-status {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .mini-card {
+            background-color: #161616;
+            border: 1px solid #222222;
+            padding: 15px;
+            border-radius: 18px;
+            text-align: left;
+        }
+
+        .mini-label {
+            font-size: 11px;
+            color: #666666;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .mini-valor {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* Cores dos indicadores de máxima e mínima */
+        #max-valor { color: #ff4071; } /* Rosa/Vermelho Neon */
+        #min-valor { color: #00d2ff; } /* Azul Neon */
+
+        .footer-status {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #444444;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo">°C ESP32</div>
+        <div class="subtitulo">Connected to Supabase Realtime</div>
+
+        <div class="card-principal">
+            <div class="label-atual">Temperatura Atual</div>
+            <div class="display-temperatura" id="temp-atual">...°C</div>
+        </div>
+
+        <div class="grid-status">
+            <div class="mini-card">
+                <div class="mini-label">🔺 MÁXIMA</div>
+                <div class="mini-valor" id="max-valor">...°C</div>
+            </div>
+            <div class="mini-card">
+                <div class="mini-label">🔹 MÍNIMA</div>
+                <div class="mini-valor" id="min-valor">...°C</div>
+            </div>
+        </div>
+
+        <div class="footer-status">Your connection is secure and private.</div>
+    </div>
+
+    <script>
+        // --- SEUS DADOS DO SUPABASE CONFIGURADOS ---
+        const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
+        // -------------------------------------------
+
+        // Instancia o cliente usando 'bancoDados' para evitar o erro de reatribuição global
+        const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let historico = [];
+
+        function calcularEAtualizar() {
+            if (historico.length > 0) {
+                const atual = historico[historico.length - 1].temperatura;
+                document.getElementById('temp-atual').innerText = atual.toFixed(1) + "°C";
+
+                const temperaturas = historico.map(item => item.temperatura);
+                const max = Math.max(...temperaturas);
+                const min = Math.min(...temperaturas);
+
+                document.getElementById('max-valor').innerText = max.toFixed(1) + "°C";
+                document.getElementById('min-valor').innerText = min.toFixed(1) + "°C";
+            }
+        }
+
+        async function carregarDadosIniciais() {
+            let { data, error } = await bancoDados
+                .from('leituras')
+                .select('*')
+                .order('created_at', { ascending: true })
+                .limit(100);
+
+            if (data && data.length > 0) {
+                historico = data;
+                calcularEAtualizar();
+            } else if (error) {
+                console.error("Erro ao conectar ao banco:", error);
+            }
+        }
+
+        bancoDados
+            .channel('custom-insert-channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
+                historico.push(payload.new);
+                calcularEAtualizar();
+            })
+            .subscribe();
+
+        carregarDadosIniciais();
+    </script>
+</body>
+</html>
