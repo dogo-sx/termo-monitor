@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1.1.1.1 Termo-Monitor</title>
+    <title>Sistema de Monitoramento</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -28,11 +28,12 @@
             max-width: 360px;
         }
 
-        /* Título no estilo da logo 1.1.1.1 */
+        /* Título no estilo da logo 1.1.1.1, com fonte reduzida para texto longo */
         .logo {
-            font-size: 38px;
+            font-size: 26px;
             font-weight: 900;
             letter-spacing: -1px;
+            line-height: 1.2;
             margin-bottom: 5px;
             background: linear-gradient(135deg, #ff6b4a, #ff4071);
             -webkit-background-clip: text;
@@ -91,6 +92,8 @@
             padding: 15px;
             border-radius: 18px;
             text-align: left;
+            display: flex;
+            flex-direction: column;
         }
 
         .mini-label {
@@ -107,21 +110,30 @@
             font-weight: 700;
         }
 
+        /* Indicador de horário dos picos */
+        .mini-hora {
+            font-size: 12px;
+            color: #888888;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
         /* Cores dos indicadores de máxima e mínima */
         #max-valor { color: #ff4071; } /* Rosa/Vermelho Neon */
         #min-valor { color: #00d2ff; } /* Azul Neon */
 
         .footer-status {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #444444;
+            margin-top: 35px;
+            font-size: 13px;
+            color: #666666;
+            line-height: 1.6;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div class="logo">°C ESP32</div>
+        <div class="logo">Sistema de Monitoramento Remoto de Temperatura</div>
         <div class="subtitulo">Connected to Supabase Realtime</div>
 
         <div class="card-principal">
@@ -131,16 +143,22 @@
 
         <div class="grid-status">
             <div class="mini-card">
-                <div class="mini-label">🔺 MÁXIMA</div>
+                <div class="mini-label">🔺 Pico de Calor</div>
                 <div class="mini-valor" id="max-valor">...°C</div>
+                <div class="mini-hora" id="max-hora">--:--</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">🔹 MÍNIMA</div>
+                <div class="mini-label">🔹 Pico de Frio</div>
                 <div class="mini-valor" id="min-valor">...°C</div>
+                <div class="mini-hora" id="min-hora">--:--</div>
             </div>
         </div>
 
-        <div class="footer-status">Your connection is secure and private.</div>
+        <div class="footer-status">
+            Desenvolvido por Raphael Furtado da Silva<br>
+            Bolsista CNPq<br>
+            2026
+        </div>
     </div>
 
     <script>
@@ -153,17 +171,38 @@
         const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let historico = [];
 
+        // Função auxiliar para formatar a data/hora recebida do Supabase
+        function formatarHora(dataISO) {
+            if (!dataISO) return "--:--";
+            const data = new Date(dataISO);
+            return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
         function calcularEAtualizar() {
             if (historico.length > 0) {
-                const atual = historico[historico.length - 1].temperatura;
-                document.getElementById('temp-atual').innerText = atual.toFixed(1) + "°C";
+                // Pega o último registro para a temperatura atual
+                const registroAtual = historico[historico.length - 1];
+                document.getElementById('temp-atual').innerText = registroAtual.temperatura.toFixed(1) + "°C";
 
-                const temperaturas = historico.map(item => item.temperatura);
-                const max = Math.max(...temperaturas);
-                const min = Math.min(...temperaturas);
+                // Encontra os registros com a temperatura máxima e mínima
+                let maxObj = historico[0];
+                let minObj = historico[0];
 
-                document.getElementById('max-valor').innerText = max.toFixed(1) + "°C";
-                document.getElementById('min-valor').innerText = min.toFixed(1) + "°C";
+                for (let i = 1; i < historico.length; i++) {
+                    if (historico[i].temperatura > maxObj.temperatura) {
+                        maxObj = historico[i];
+                    }
+                    if (historico[i].temperatura < minObj.temperatura) {
+                        minObj = historico[i];
+                    }
+                }
+
+                // Atualiza a interface com os valores e horários
+                document.getElementById('max-valor').innerText = maxObj.temperatura.toFixed(1) + "°C";
+                document.getElementById('max-hora').innerText = "às " + formatarHora(maxObj.created_at);
+
+                document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
+                document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
             }
         }
 
