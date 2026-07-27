@@ -11,7 +11,7 @@
         /* VISUAL INSPIRADO NO 1.1.1.1 (CLOUDFLARE WARP) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #101010; /* Fundo escuro profundo */
+            background-color: #101010;
             color: #ffffff;
             display: flex;
             justify-content: center;
@@ -28,7 +28,6 @@
             max-width: 360px;
         }
 
-        /* Título no estilo da logo 1.1.1.1, com fonte reduzida para texto longo */
         .logo {
             font-size: 26px;
             font-weight: 900;
@@ -43,11 +42,60 @@
         .subtitulo {
             font-size: 14px;
             color: #888888;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             font-weight: 400;
         }
 
-        /* O Bloco Central - Temperatura Atual */
+        /* TELA DE LOGIN */
+        #tela-login {
+            background-color: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            padding: 30px 20px;
+            border-radius: 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .input-senha {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid #333;
+            background-color: #101010;
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            outline: none;
+            letter-spacing: 4px;
+        }
+
+        .input-senha:focus {
+            border-color: #ff6b4a;
+        }
+
+        .btn-entrar {
+            width: 100%;
+            background: linear-gradient(135deg, #ff6b4a, #ff4071);
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .btn-entrar:active {
+            transform: scale(0.98);
+        }
+
+        /* PAINEL DE DADOS (Inicia Oculto) */
+        #painel-principal {
+            display: none;
+        }
+
         .card-principal {
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
@@ -55,11 +103,6 @@
             border-radius: 28px;
             margin-bottom: 25px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            transition: border-color 0.3s;
-        }
-
-        .card-principal:hover {
-            border-color: #ff5252;
         }
 
         .label-atual {
@@ -79,7 +122,6 @@
             color: #ffffff;
         }
 
-        /* Grid de Estatísticas (Mínima e Máxima) */
         .grid-status {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -111,7 +153,6 @@
             font-weight: 700;
         }
 
-        /* Indicador de horário dos picos */
         .mini-hora {
             font-size: 12px;
             color: #888888;
@@ -119,11 +160,9 @@
             font-weight: 500;
         }
 
-        /* Cores dos indicadores de máxima e mínima */
-        #max-valor { color: #ff4071; } /* Rosa/Vermelho Neon */
-        #min-valor { color: #00d2ff; } /* Azul Neon */
+        #max-valor { color: #ff4071; }
+        #min-valor { color: #00d2ff; }
 
-        /* ESTILO DO BOTÃO DE RESET */
         .btn-reset {
             width: 100%;
             background-color: #221515;
@@ -134,8 +173,8 @@
             font-weight: 700;
             border-radius: 18px;
             cursor: pointer;
-            transition: all 0.2s ease;
             margin-bottom: 25px;
+            transition: all 0.2s ease;
         }
 
         .btn-reset:hover {
@@ -145,7 +184,6 @@
         }
 
         .footer-status {
-            margin-top: 10px;
             font-size: 13px;
             color: #666666;
             line-height: 1.6;
@@ -162,10 +200,7 @@
             font-weight: 600;
         }
 
-        .fonte-dados span {
-            color: #3ecf8e;
-            font-weight: 700;
-        }
+        .fonte-dados span { color: #3ecf8e; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -174,47 +209,85 @@
         <div class="logo">Sistema de Monitoramento Remoto de Temperatura</div>
         <div class="subtitulo">Connected to Supabase Realtime</div>
 
-        <div class="card-principal">
-            <div class="label-atual">Temperatura Atual</div>
-            <div class="display-temperatura" id="temp-atual">...°C</div>
+        <div id="tela-login">
+            <div class="label-atual" style="margin-bottom: 20px;">🔒 Acesso Restrito</div>
+            <input type="password" id="campo-senha" class="input-senha" placeholder="Digite a senha" onkeypress="checarEnter(event)">
+            <button class="btn-entrar" onclick="validarSenha()">Entrar no Painel</button>
         </div>
 
-        <div class="grid-status">
-            <div class="mini-card">
-                <div class="mini-label">🔺 Pico de Calor</div>
-                <div class="mini-valor" id="max-valor">...°C</div>
-                <div class="mini-hora" id="max-hora">--:--</div>
+        <div id="painel-principal">
+            <div class="card-principal">
+                <div class="label-atual">Temperatura Atual</div>
+                <div class="display-temperatura" id="temp-atual">...°C</div>
             </div>
-            <div class="mini-card">
-                <div class="mini-label">🔹 Pico de Frio</div>
-                <div class="mini-valor" id="min-valor">...°C</div>
-                <div class="mini-hora" id="min-hora">--:--</div>
+
+            <div class="grid-status">
+                <div class="mini-card">
+                    <div class="mini-label">🔺 Pico de Calor</div>
+                    <div class="mini-valor" id="max-valor">...°C</div>
+                    <div class="mini-hora" id="max-hora">--:--</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">🔹 Pico de Frio</div>
+                    <div class="mini-valor" id="min-valor">...°C</div>
+                    <div class="mini-hora" id="min-hora">--:--</div>
+                </div>
             </div>
-        </div>
 
-        <button class="btn-reset" onclick="limparBanco()">
-            🗑️ Resetar Leituras do Banco
-        </button>
+            <button class="btn-reset" onclick="limparBanco()">
+                🗑️ Resetar Leituras do Banco
+            </button>
 
-        <div class="footer-status">
-            Desenvolvido por Raphael Furtado da Silva<br>
-            Bolsista CNPq<br>
-            2026
-            
-            <div class="fonte-dados">
-                Fonte de Dados: <span>⚡ Supabase Database</span>
+            <div class="footer-status">
+                Desenvolvido por Raphael Furtado da Silva<br>
+                Bolsista CNPq<br>
+                2026
+                
+                <div class="fonte-dados">
+                    Fonte de Dados: <span>⚡ Supabase Database</span>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- SEUS DADOS DO SUPABASE CONFIGURADOS ---
+        // SENHA MESTRA DEFINIDA
+        const SENHA_MESTRA = "0101";
+
         const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
-        // -------------------------------------------
 
         const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let historico = [];
+
+        function validarSenha() {
+            const senhaDigitada = document.getElementById('campo-senha').value.trim();
+            if (senhaDigitada === SENHA_MESTRA) {
+                sessionStorage.setItem('autenticado', 'true');
+                mostrarPainel();
+            } else {
+                alert("❌ Senha incorreta! Acesso negado.");
+                document.getElementById('campo-senha').value = "";
+            }
+        }
+
+        function checarEnter(event) {
+            if (event.key === "Enter") {
+                validarSenha();
+            }
+        }
+
+        function mostrarPainel() {
+            document.getElementById('tela-login').style.display = 'none';
+            document.getElementById('painel-principal').style.display = 'block';
+            carregarDadosIniciais();
+            iniciarRealtime();
+        }
+
+        // Mantém a sessão aberta na mesma aba do navegador enquanto ela não for fechada
+        if (sessionStorage.getItem('autenticado') === 'true') {
+            mostrarPainel();
+        }
 
         function formatarHora(dataISO) {
             if (!dataISO) return "--:--";
@@ -263,12 +336,9 @@
             if (data && data.length > 0) {
                 historico = data;
                 calcularEAtualizar();
-            } else if (error) {
-                console.error("Erro ao conectar ao banco:", error);
             }
         }
 
-        // FUNÇÃO ADICIONADA PARA O BOTÃO
         async function limparBanco() {
             if (!confirm("Deseja realmente apagar todo o histórico de leituras do Supabase?")) return;
 
@@ -286,19 +356,19 @@
             }
         }
 
-        bancoDados
-            .channel('custom-insert-channel')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
-                historico.push(payload.new);
-                calcularEAtualizar();
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'leituras' }, () => {
-                historico = [];
-                calcularEAtualizar();
-            })
-            .subscribe();
-
-        carregarDadosIniciais();
+        function iniciarRealtime() {
+            bancoDados
+                .channel('custom-insert-channel')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
+                    historico.push(payload.new);
+                    calcularEAtualizar();
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'leituras' }, () => {
+                    historico = [];
+                    calcularEAtualizar();
+                })
+                .subscribe();
+        }
     </script>
 </body>
 </html>
