@@ -1,470 +1,51 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Sistema de Monitoramento</title>
-
     
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-
-
     <style>
-
         /* VISUAL INSPIRADO NO 1.1.1.1 (CLOUDFLARE WARP) */
-
         body {
-
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-
             background-color: #101010; /* Fundo escuro profundo */
-
             color: #ffffff;
-
             display: flex;
-
             justify-content: center;
-
             align-items: center;
-
             min-height: 100vh;
-
             margin: 0;
-
             padding: 20px;
-
             box-sizing: border-box;
-
         }
-
-
 
         .container {
-
             text-align: center;
-
             width: 100%;
-
             max-width: 360px;
-
         }
-
-
 
         /* Título no estilo da logo 1.1.1.1, com fonte reduzida para texto longo */
-
         .logo {
-
             font-size: 26px;
-
             font-weight: 900;
-
             letter-spacing: -1px;
-
             line-height: 1.2;
-
             margin-bottom: 5px;
-
             background: linear-gradient(135deg, #ff6b4a, #ff4071);
-
             -webkit-background-clip: text;
-
             -webkit-text-fill-color: transparent;
-
         }
-
-
 
         .subtitulo {
-
             font-size: 14px;
-
             color: #888888;
-
             margin-bottom: 40px;
-
             font-weight: 400;
-
         }
-
-
 
         /* O Bloco Central - Temperatura Atual */
-
         .card-principal {
-
-            background-color: #1a1a1a;
-
-            border: 1px solid #2a2a2a;
-
-            padding: 40px 20px;
-
-            border-radius: 28px;
-
-            margin-bottom: 25px;
-
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-
-            transition: border-color 0.3s;
-
-        }
-
-
-
-        .card-principal:hover {
-
-            border-color: #ff5252;
-
-        }
-
-
-
-        .label-atual {
-
-            font-size: 11px;
-
-            text-transform: uppercase;
-
-            letter-spacing: 2px;
-
-            color: #ff6b4a;
-
-            font-weight: 700;
-
-            margin-bottom: 10px;
-
-        }
-
-
-
-        .display-temperatura {
-
-            font-size: 62px;
-
-            font-weight: 800;
-
-            letter-spacing: -2px;
-
-            margin: 0;
-
-            color: #ffffff;
-
-        }
-
-
-
-        /* Grid de Estatísticas (Mínima e Máxima) */
-
-        .grid-status {
-
-            display: grid;
-
-            grid-template-columns: 1fr 1fr;
-
-            gap: 15px;
-
-        }
-
-
-
-        .mini-card {
-
-            background-color: #161616;
-
-            border: 1px solid #222222;
-
-            padding: 15px;
-
-            border-radius: 18px;
-
-            text-align: left;
-
-            display: flex;
-
-            flex-direction: column;
-
-        }
-
-
-
-        .mini-label {
-
-            font-size: 11px;
-
-            color: #666666;
-
-            font-weight: 600;
-
-            text-transform: uppercase;
-
-            letter-spacing: 1px;
-
-            margin-bottom: 5px;
-
-        }
-
-
-
-        .mini-valor {
-
-            font-size: 20px;
-
-            font-weight: 700;
-
-        }
-
-
-
-        /* Indicador de horário dos picos */
-
-        .mini-hora {
-
-            font-size: 12px;
-
-            color: #888888;
-
-            margin-top: 4px;
-
-            font-weight: 500;
-
-        }
-
-
-
-        /* Cores dos indicadores de máxima e mínima */
-
-        #max-valor { color: #ff4071; } /* Rosa/Vermelho Neon */
-
-        #min-valor { color: #00d2ff; } /* Azul Neon */
-
-
-
-        .footer-status {
-
-            margin-top: 35px;
-
-            font-size: 13px;
-
-            color: #666666;
-
-            line-height: 1.6;
-
-        }
-
-    </style>
-
-</head>
-
-<body>
-
-
-
-    <div class="container">
-
-        <div class="logo">Sistema de Monitoramento Remoto de Temperatura</div>
-
-        <div class="subtitulo">Connected to Supabase Realtime</div>
-
-
-
-        <div class="card-principal">
-
-            <div class="label-atual">Temperatura Atual</div>
-
-            <div class="display-temperatura" id="temp-atual">...°C</div>
-
-        </div>
-
-
-
-        <div class="grid-status">
-
-            <div class="mini-card">
-
-                <div class="mini-label">🔺 Pico de Calor</div>
-
-                <div class="mini-valor" id="max-valor">...°C</div>
-
-                <div class="mini-hora" id="max-hora">--:--</div>
-
-            </div>
-
-            <div class="mini-card">
-
-                <div class="mini-label">🔹 Pico de Frio</div>
-
-                <div class="mini-valor" id="min-valor">...°C</div>
-
-                <div class="mini-hora" id="min-hora">--:--</div>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="footer-status">
-
-            Desenvolvido por Raphael Furtado da Silva<br>
-
-            Bolsista CNPq<br>
-
-            2026
-
-        </div>
-
-    </div>
-
-
-
-    <script>
-
-        // --- SEUS DADOS DO SUPABASE CONFIGURADOS ---
-
-        const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
-
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
-
-        // -------------------------------------------
-
-
-
-        // Instancia o cliente usando 'bancoDados' para evitar o erro de reatribuição global
-
-        const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        let historico = [];
-
-
-
-        // Função auxiliar para formatar a data/hora recebida do Supabase
-
-        function formatarHora(dataISO) {
-
-            if (!dataISO) return "--:--";
-
-            const data = new Date(dataISO);
-
-            return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-        }
-
-
-
-        function calcularEAtualizar() {
-
-            if (historico.length > 0) {
-
-                // Pega o último registro para a temperatura atual
-
-                const registroAtual = historico[historico.length - 1];
-
-                document.getElementById('temp-atual').innerText = registroAtual.temperatura.toFixed(1) + "°C";
-
-
-
-                // Encontra os registros com a temperatura máxima e mínima
-
-                let maxObj = historico[0];
-
-                let minObj = historico[0];
-
-
-
-                for (let i = 1; i < historico.length; i++) {
-
-                    if (historico[i].temperatura > maxObj.temperatura) {
-
-                        maxObj = historico[i];
-
-                    }
-
-                    if (historico[i].temperatura < minObj.temperatura) {
-
-                        minObj = historico[i];
-
-                    }
-
-                }
-
-
-
-                // Atualiza a interface com os valores e horários
-
-                document.getElementById('max-valor').innerText = maxObj.temperatura.toFixed(1) + "°C";
-
-                document.getElementById('max-hora').innerText = "às " + formatarHora(maxObj.created_at);
-
-
-
-                document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
-
-                document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
-
-            }
-
-        }
-
-
-
-        async function carregarDadosIniciais() {
-
-            let { data, error } = await bancoDados
-
-                .from('leituras')
-
-                .select('*')
-
-                .order('created_at', { ascending: true })
-
-                .limit(100);
-
-
-
-            if (data && data.length > 0) {
-
-                historico = data;
-
-                calcularEAtualizar();
-
-            } else if (error) {
-
-                console.error("Erro ao conectar ao banco:", error);
-
-            }
-
-        }
-
-
-
-        bancoDados
-
-            .channel('custom-insert-channel')
-
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
-
-                historico.push(payload.new);
-
-                calcularEAtualizar();
-
-            })
-
-            .subscribe();
-
-
-
-        carregarDadosIniciais();
-
-    </script>
-
-</body>
-
-</html> 
-
