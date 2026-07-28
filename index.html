@@ -6,12 +6,13 @@
     <title>Sistema de Monitoramento</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         /* VISUAL INSPIRADO NO 1.1.1.1 (CLOUDFLARE WARP) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #101010; /* Fundo escuro profundo */
+            background-color: #101010;
             color: #ffffff;
             display: flex;
             justify-content: center;
@@ -25,7 +26,7 @@
         .container {
             text-align: center;
             width: 100%;
-            max-width: 360px;
+            max-width: 420px;
         }
 
         .logo {
@@ -42,17 +43,17 @@
         .subtitulo {
             font-size: 14px;
             color: #888888;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             font-weight: 400;
         }
 
-        /* O Bloco Central - Temperatura Atual */
+        /* CARD PRINCIPAL */
         .card-principal {
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
-            padding: 40px 20px;
+            padding: 35px 20px;
             border-radius: 28px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.5);
             transition: border-color 0.3s;
         }
@@ -78,7 +79,35 @@
             color: #ffffff;
         }
 
-        /* Grid de Estatísticas (Mínima e Máxima) */
+        /* CARD DO GRÁFICO */
+        .card-grafico {
+            background-color: #161616;
+            border: 1px solid #222222;
+            padding: 20px 15px;
+            border-radius: 24px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .grafico-header {
+            font-size: 11px;
+            color: #888888;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 180px;
+            width: 100%;
+        }
+
+        /* GRID DE PICOS */
         .grid-status {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -120,7 +149,7 @@
         #max-valor { color: #ff4071; }
         #min-valor { color: #00d2ff; }
 
-        /* ESTILO DO BOTÃO DE RESET */
+        /* BOTÃO RESET */
         .btn-reset {
             width: 100%;
             background-color: #221515;
@@ -141,15 +170,33 @@
             border-color: #ff5252;
         }
 
-        .btn-reset:active {
-            transform: scale(0.98);
-        }
-
+        /* FOOTER COM LOGOTIPOS */
         .footer-status {
-            margin-top: 10px;
             font-size: 13px;
             color: #666666;
             line-height: 1.6;
+        }
+
+        .desenvolvedor-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logos-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 6px;
+        }
+
+        .logo-instituicao {
+            height: 24px;
+            width: auto;
+            object-fit: contain;
+            filter: brightness(0.9) contrast(1.1); /* Ajuste de brilho para o tema escuro */
         }
 
         .fonte-dados {
@@ -180,6 +227,13 @@
             <div class="display-temperatura" id="temp-atual">...°C</div>
         </div>
 
+        <div class="card-grafico">
+            <div class="grafico-header">📈 Histórico Recente (°C)</div>
+            <div class="chart-container">
+                <canvas id="graficoTemperatura"></canvas>
+            </div>
+        </div>
+
         <div class="grid-status">
             <div class="mini-card">
                 <div class="mini-label">🔺 Pico de Calor</div>
@@ -198,8 +252,16 @@
         </button>
 
         <div class="footer-status">
-            Desenvolvido por Raphael Furtado da Silva<br>
-            Bolsista CNPq<br>
+            <div class="desenvolvedor-info">
+                <span>Desenvolvido por <strong>Raphael Furtado da Silva</strong></span>
+                <span>Bolsista CNPq</span>
+                
+                <div class="logos-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b3/CNPq_logo.svg" alt="Símbolo CNPq" class="logo-instituicao" title="CNPq">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e8/Inmetro_logo.svg" alt="Símbolo Inmetro" class="logo-instituicao" title="Inmetro">
+                </div>
+            </div>
+            
             2026
             
             <div class="fonte-dados">
@@ -209,20 +271,70 @@
     </div>
 
     <script>
-        // SENHA MESTRA PARA APAGAR OS DADOS
         const SENHA_MESTRA = "0101";
 
-        // CONFIGURAÇÕES DO SUPABASE
         const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
 
         const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let historico = [];
+        let graficoChart = null;
 
         function formatarHora(dataISO) {
             if (!dataISO) return "--:--";
             const data = new Date(dataISO);
             return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function inicializarGrafico() {
+            const ctx = document.getElementById('graficoTemperatura').getContext('2d');
+            
+            const gradient = ctx.createLinearGradient(0, 0, 0, 180);
+            gradient.addColorStop(0, 'rgba(255, 107, 74, 0.4)');
+            gradient.addColorStop(1, 'rgba(255, 107, 74, 0.0)');
+
+            graficoChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        data: [],
+                        borderColor: '#ff6b4a',
+                        borderWidth: 2,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#ff4071'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#222' },
+                            ticks: { color: '#666', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: '#222' },
+                            ticks: { color: '#666', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGrafico() {
+            if (!graficoChart) return;
+            const ultimosRegistros = historico.slice(-15);
+            graficoChart.data.labels = ultimosRegistros.map(item => formatarHora(item.created_at));
+            graficoChart.data.datasets[0].data = ultimosRegistros.map(item => item.temperatura);
+            graficoChart.update();
         }
 
         function calcularEAtualizar() {
@@ -254,6 +366,8 @@
                 document.getElementById('min-valor').innerText = "...°C";
                 document.getElementById('min-hora').innerText = "--:--";
             }
+
+            atualizarGrafico();
         }
 
         async function carregarDadosIniciais() {
@@ -271,54 +385,26 @@
             }
         }
 
-        // FUNÇÃO DE EXCLUSÃO PROTEGIDA POR SENHA
         async function limparBancoComSenha() {
-            // Solicita a senha ao usuário via caixa de diálogo
             const senhaInserida = prompt("🔒 Ação Restrita! Digite a senha mestra para apagar o banco:");
 
-            // Se o usuário clicar em Cancelar ou não digitar nada
             if (senhaInserida === null) return;
 
-            // Valida a senha digitada
             if (senhaInserida.trim() !== SENHA_MESTRA) {
                 alert("❌ Senha incorreta! Operação cancelada.");
                 return;
             }
 
-            // Confirmação final de segurança
             if (!confirm("⚠️ Atencão: Tem certeza de que deseja apagar permanentemente todas as leituras?")) return;
 
-            // Executa o DELETE no Supabase
             const { error } = await bancoDados
                 .from('leituras')
                 .delete()
                 .neq('temperatura', -999);
 
             if (error) {
-                alert("❌ Erro ao apagar dados. Verifique a permissão RLS da tabela no Supabase.");
-                console.error(error);
+                alert("❌ Erro ao apagar dados. Verifique as regras de RLS no Supabase.");
             } else {
-                alert("✅ Registros do banco apagados com sucesso!");
+                alert("✅ Registros apagados!");
                 historico = [];
-                calcularEAtualizar();
-            }
-        }
-
-        // Escuta novas inserções e exclusões em tempo real
-        bancoDados
-            .channel('custom-insert-channel')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
-                historico.push(payload.new);
-                calcularEAtualizar();
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'leituras' }, () => {
-                historico = [];
-                calcularEAtualizar();
-            })
-            .subscribe();
-
-        // Carrega as leituras ao abrir a página
-        carregarDadosIniciais();
-    </script>
-</body>
-</html>
+                calcularEAtualizar
