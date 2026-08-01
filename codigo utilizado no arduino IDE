@@ -1,0 +1,134 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <WiFiManager.h> 
+
+// ================================================================
+// 1. DADOS DE CONEXÃO E SUPABASE
+// ================================================================
+const char* supabase_url = "https://wfhwtuopsyzdygmzxhay.supabase.co/rest/v1/leituras";
+const char* supabase_key = "sb_publishable_dIYSweTs6gxVGunVZGwZAw_a092kjNu";
+
+// Intervalo entre envios (15000ms = 15 segundos)
+const unsigned long INTERVALO_ENVIO = 15000;
+unsigned long tempoAnterior = 0;
+
+// ================================================================
+// 2. CONFIGURAÇÃO DO SENSOR DS18B20 (PINO 23)
+// ================================================================
+#define ONE_WIRE_BUS 23
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+void enviarParaSupabase(float valorTemperatura);
+
+// ================================================================
+// 3. SETUP (INICIALIZAÇÃO COM WIFIMANAGER)
+// ================================================================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("\n==================================================");
+  Serial.println("  SISTEMA DE MONITORAMENTO DE ESTUFA - ESP32    ");
+  Serial.println("==================================================");
+
+  // Ativa o resistor de pull-up interno do ESP32 na GPIO 23
+  pinMode(ONE_WIRE_BUS, INPUT_PULLUP);
+  sensors.begin();
+
+  // Instância do WiFiManager
+  WiFiManager wm;
+
+  // Opcional: Descomente a linha abaixo se quiser APAGAR a rede salva para testar o portal novamente
+   //wm.resetSettings();
+
+  // Define um tempo limite (em segundos) para o portal ficar aberto aguardando configuração
+  wm.setConfigPortalTimeout(180);
+
+  // Tenta conectar. Se não conseguir, cria o Hotspot "Estufa-Config" (sem senha)
+  bool res = wm.autoConnect("Estufa-Config");
+
+  if (!res) {
+    Serial.println("❌ Falha na conexão ou tempo do portal esgotado. Reiniciando...");
+    ESP.restart(); // Reinicia o ESP32 para tentar novamente
+  } else {
+    Serial.println("\n✅ Wi-Fi Conectado com Sucesso!");
+    Serial.print("IP do ESP32: ");
+    Serial.println(WiFi.localIP());
+  }
+}
+
+// ================================================================
+// 4. LOOP PRINCIPAL
+// ================================================================
+void loop() {
+  unsigned long tempoAtual = millis();
+
+  if (tempoAtual - tempoAnterior >= INTERVALO_ENVIO) {
+    tempoAnterior = tempoAtual;
+
+    // 1. Faz a leitura da temperatura no DS18B20
+    sensors.requestTemperatures();
+    float temperatura = sensors.getTempCByIndex(0);
+
+    // 2. Valida a leitura
+    if (temperatura == DEVICE_DISCONNECTED_C) {
+      Serial.println("❌ Erro: Sensor DS18B20 não encontrado na GPIO 23!");
+      return;
+    }
+
+    Serial.print("\n🌡️ Temperatura Lida: ");
+    Serial.print(temperatura, 2);
+    Serial.println(" °C");
+
+    // 3. Envia para o Supabase
+    if (WiFi.status() == WL_CONNECTED) {
+      enviarParaSupabase(temperatura);
+    } else {
+      Serial.println("⚠️ Wi-Fi desconectado! O ESP32 tentará reconectar...");
+      WiFi.reconnect();
+    }
+  }
+}
+
+// ================================================================
+// 5. FUNÇÃO DE ENVIO PARA O SUPABASE
+// ================================================================
+void enviarParaSupabase(float valorTemperatura) {
+  WiFiClientSecure client;
+  client.setInsecure(); 
+
+  HTTPClient http;
+
+  if (http.begin(client, supabase_url)) {
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("apikey", supabase_key);
+    
+    String authHeader = "Bearer ";
+    authHeader += supabase_key;
+    http.addHeader("Authorization", authHeader);
+    http.addHeader("Prefer", "return=representation");
+
+    String jsonBody = "{\"temperatura\":" + String(valorTemperatura, 2) + "}";
+
+    int httpResponseCode = http.POST(jsonBody);
+
+    Serial.print("Código HTTP: ");
+    Serial.println(httpResponseCode);
+
+    if (httpResponseCode == 201 || httpResponseCode == 200) {
+      Serial.println("🚀 Dado gravado no Supabase com sucesso!");
+    } else {
+      Serial.print("❌ Erro no envio. Resposta do servidor: ");
+      Serial.println(http.getString());
+    }
+
+    http.end();
+  } else {
+    Serial.println("❌ Falha ao inicializar o cliente HTTPS.");
+  }
+}
