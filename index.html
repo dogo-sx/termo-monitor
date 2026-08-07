@@ -1,3 +1,11 @@
+Aqui está o código ajustado!
+
+Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre a contagem total de leituras que estão salvas no histórico do seu banco, em vez de pegar apenas um subconjunto de 40), fiz as seguintes alterações:
+
+1. **Incerteza Padrão com $N$ dinâmico/acumulativo:** O cálculo agora utiliza a quantidade total de amostras disponíveis ($N = \text{total de leituras no banco}$).
+2. **Exibição no mini-card:** Mostra $N = \text{total}$, indicando a quantidade exata de medições consideradas no cálculo.
+
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -452,12 +460,12 @@
                 document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
                 document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
 
-                // --- CÁLCULO DA INCERTEZA (ÚLTIMAS 40 LEITURAS) ---
-                const ultimasAmostras = historico.slice(-40).map(item => item.temperatura);
-                const qtdAmostras = ultimasAmostras.length;
+                // --- CÁLCULO DA INCERTEZA (N = TOTAL DE LEITURAS DISPONÍVEIS) ---
+                const amostras = historico.map(item => item.temperatura);
+                const qtdAmostras = amostras.length;
 
                 if (qtdAmostras >= 2) {
-                    const u = calcularIncertezaTipoA(ultimasAmostras);
+                    const u = calcularIncertezaTipoA(amostras);
                     document.getElementById('incerteza-valor').innerText = "±" + u.toFixed(3) + "°C";
                     document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
                 } else {
@@ -466,7 +474,7 @@
                 }
 
                 if (manual) {
-                    alert(`✅ Cálculo atualizado com sucesso!\nAmostras analisadas: ${qtdAmostras}`);
+                    alert(`✅ Cálculo atualizado com sucesso!\nTotal de leituras analisadas (N): ${qtdAmostras}`);
                 }
 
             } else {
@@ -548,3 +556,5 @@
     </script>
 </body>
 </html>
+
+```
