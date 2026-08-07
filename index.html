@@ -1,11 +1,3 @@
-Aqui está o código ajustado!
-
-Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre a contagem total de leituras que estão salvas no histórico do seu banco, em vez de pegar apenas um subconjunto de 40), fiz as seguintes alterações:
-
-1. **Incerteza Padrão com $N$ dinâmico/acumulativo:** O cálculo agora utiliza a quantidade total de amostras disponíveis ($N = \text{total de leituras no banco}$).
-2. **Exibição no mini-card:** Mostra $N = \text{total}$, indicando a quantidade exata de medições consideradas no cálculo.
-
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -167,7 +159,7 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
         }
 
         .mini-valor {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 700;
         }
 
@@ -306,7 +298,7 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
                 <div class="mini-hora" id="min-hora">--:--</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">📐 Incerteza (u)</div>
+                <div class="mini-label">📐 Incerteza (uc)</div>
                 <div class="mini-valor" id="incerteza-valor">...°C</div>
                 <div class="mini-hora" id="incerteza-amostras">(N=0)</div>
             </div>
@@ -352,6 +344,9 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
         const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
 
+        // RESOLUÇÃO DO DS18B20 EM 12 BITS (0.0625 °C)
+        const RESOLUCAO_SENSOR = 0.0625;
+
         const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let historico = [];
         let graficoChart = null;
@@ -362,16 +357,38 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
             return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        // CÁLCULO METROLÓGICO: INCERTEZA PADRÃO TIPO A (u = s / sqrt(N))
-        function calcularIncertezaTipoA(amostras) {
+        // CÁLCULO METROLÓGICO: INCERTEZA COMBINADA (Tipo A + Tipo B)
+        function calcularIncertezaCombinada(amostras) {
             const n = amostras.length;
-            if (n < 2) return 0;
-
-            const media = amostras.reduce((acc, val) => acc + val, 0) / n;
-            const somaQuadrados = amostras.reduce((acc, val) => acc + Math.pow(val - media, 2), 0);
-            const desvioPadrao = Math.sqrt(somaQuadrados / (n - 1));
             
-            return desvioPadrao / Math.sqrt(n);
+            // 1. Incerteza do Tipo A (Estatística)
+            let ua = 0;
+            if (n >= 2) {
+                const media = amostras.reduce((acc, val) => acc + val, 0) / n;
+                const somaQuadrados = amostras.reduce((acc, val) => acc + Math.pow(val - media, 2), 0);
+                const desvioPadrao = Math.sqrt(somaQuadrados / (n - 1));
+                ua = desvioPadrao / Math.sqrt(n);
+            }
+
+            // 2. Incerteza do Tipo B (Resolução do Sensor em 12-bits - Distribuição Retangular)
+            const ub = RESOLUCAO_SENSOR / Math.sqrt(12); // aprox 0.01804 °C
+
+            // 3. Incerteza Combinada uc = sqrt(ua² + ub²)
+            const uc = Math.sqrt(Math.pow(ua, 2) + Math.pow(ub, 2));
+
+            return uc;
+        }
+
+        // FORMATAÇÃO AUTOMÁTICA DA INCERTEZA
+        function formatarIncerteza(valor) {
+            if (valor === 0) return "--.-°C";
+            
+            // Se o valor for muito pequeno (< 0.001), exibe em Notação Científica
+            if (valor < 0.001) {
+                return "±" + valor.toExponential(2) + "°C";
+            }
+            
+            return "±" + valor.toFixed(3) + "°C";
         }
 
         // VERIFICA SE ESTÁ A MAIS DE 5 MINUTOS SEM RECEBER DADOS
@@ -460,21 +477,16 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
                 document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
                 document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
 
-                // --- CÁLCULO DA INCERTEZA (N = TOTAL DE LEITURAS DISPONÍVEIS) ---
+                // --- CÁLCULO DA INCERTEZA COMBINADA (N = TOTAL DE AMOSTRAS) ---
                 const amostras = historico.map(item => item.temperatura);
                 const qtdAmostras = amostras.length;
 
-                if (qtdAmostras >= 2) {
-                    const u = calcularIncertezaTipoA(amostras);
-                    document.getElementById('incerteza-valor').innerText = "±" + u.toFixed(3) + "°C";
-                    document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
-                } else {
-                    document.getElementById('incerteza-valor').innerText = "--.-°C";
-                    document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
-                }
+                const uc = calcularIncertezaCombinada(amostras);
+                document.getElementById('incerteza-valor').innerText = formatarIncerteza(uc);
+                document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
 
                 if (manual) {
-                    alert(`✅ Cálculo atualizado com sucesso!\nTotal de leituras analisadas (N): ${qtdAmostras}`);
+                    alert(`✅ Incerteza Combinada Recalculada!\nAmostras analisadas (N): ${qtdAmostras}\nIncerteza Combinada (uc): ${formatarIncerteza(uc)}`);
                 }
 
             } else {
@@ -517,7 +529,7 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
                 return;
             }
 
-            if (!confirm("⚠️ Atencão: Tem certeza de que deseja apagar permanentemente todas as leituras?")) return;
+            if (!confirm("⚠️ Atenção: Tem certeza de que deseja apagar permanentemente todas as leituras?")) return;
 
             const { error } = await bancoDados
                 .from('leituras')
@@ -556,5 +568,3 @@ Para deixar o **$N$ fixo em 40 leituras** (ou seja, o valor de $N$ será sempre 
     </script>
 </body>
 </html>
-
-```
