@@ -26,7 +26,7 @@
         .container {
             text-align: center;
             width: 100%;
-            max-width: 380px;
+            max-width: 420px;
         }
 
         .logo {
@@ -43,15 +43,35 @@
         .subtitulo {
             font-size: 14px;
             color: #888888;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-weight: 400;
+        }
+
+        /* BANNER DE ALERTA (SEM SINAL) */
+        .alerta-offline {
+            display: none;
+            background-color: #3d1414;
+            border: 1px solid #ff4444;
+            color: #ff8888;
+            padding: 12px 15px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            animation: piscar 2s infinite;
+        }
+
+        @keyframes piscar {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
         }
 
         /* CARD PRINCIPAL - TEMPERATURA ATUAL */
         .card-principal {
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
-            padding: 35px 20px;
+            padding: 30px 20px;
             border-radius: 28px;
             margin-bottom: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.5);
@@ -68,7 +88,7 @@
             letter-spacing: 2px;
             color: #ff6b4a;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .display-temperatura {
@@ -77,6 +97,13 @@
             letter-spacing: -2px;
             margin: 0;
             color: #ffffff;
+        }
+
+        .hora-atualizacao {
+            font-size: 12px;
+            color: #aaaaaa;
+            margin-top: 8px;
+            font-weight: 500;
         }
 
         /* CARD DO GRÁFICO */
@@ -104,18 +131,18 @@
             width: 100%;
         }
 
-        /* GRID DE ESTATÍSTICAS */
+        /* GRID DE ESTATÍSTICAS (3 COLUNAS) */
         .grid-status {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
         }
 
         .mini-card {
             background-color: #161616;
             border: 1px solid #222222;
-            padding: 15px;
+            padding: 12px 10px;
             border-radius: 18px;
             text-align: left;
             display: flex;
@@ -123,21 +150,21 @@
         }
 
         .mini-label {
-            font-size: 11px;
+            font-size: 9px;
             color: #666666;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             margin-bottom: 5px;
         }
 
         .mini-valor {
-            font-size: 20px;
+            font-size: 17px;
             font-weight: 700;
         }
 
         .mini-hora {
-            font-size: 12px;
+            font-size: 11px;
             color: #888888;
             margin-top: 4px;
             font-weight: 500;
@@ -145,20 +172,46 @@
 
         #max-valor { color: #ff4071; }
         #min-valor { color: #00d2ff; }
+        #incerteza-valor { color: #fbc02d; }
 
-        /* BOTÃO DE RESET */
-        .btn-reset {
+        /* BOTÕES DE AÇÃO */
+        .botoes-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .btn-calc {
             width: 100%;
-            background-color: #221515;
-            color: #ff5252;
-            border: 1px solid #3a1c1c;
-            padding: 14px 20px;
+            background-color: #1a2332;
+            color: #00d2ff;
+            border: 1px solid #1c3552;
+            padding: 12px 20px;
             font-size: 13px;
             font-weight: 700;
             border-radius: 18px;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-bottom: 25px;
+        }
+
+        .btn-calc:hover {
+            background-color: #00d2ff;
+            color: #101010;
+            border-color: #00d2ff;
+        }
+
+        .btn-reset {
+            width: 100%;
+            background-color: #221515;
+            color: #ff5252;
+            border: 1px solid #3a1c1c;
+            padding: 12px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         .btn-reset:hover {
@@ -167,7 +220,7 @@
             border-color: #ff5252;
         }
 
-        .btn-reset:active {
+        .btn-calc:active, .btn-reset:active {
             transform: scale(0.98);
         }
 
@@ -178,7 +231,6 @@
             line-height: 1.6;
         }
 
-        /* LOGOS DO CNPq E INMETRO */
         .logos-container {
             display: flex;
             align-items: center;
@@ -217,9 +269,14 @@
         <div class="logo">Sistema de Monitoramento Remoto de Temperatura</div>
         <div class="subtitulo">Connected to Supabase Realtime</div>
 
+        <div class="alerta-offline" id="alerta-offline">
+            ⚠️ Nenhuma nova leitura recebida nos últimos 5 minutos. Verifique a conexão do ESP32!
+        </div>
+
         <div class="card-principal">
             <div class="label-atual">Temperatura Atual</div>
             <div class="display-temperatura" id="temp-atual">...°C</div>
+            <div class="hora-atualizacao" id="temp-hora">Última leitura: --:--</div>
         </div>
 
         <div class="card-grafico">
@@ -231,20 +288,31 @@
 
         <div class="grid-status">
             <div class="mini-card">
-                <div class="mini-label">🔺 Pico de Calor</div>
+                <div class="mini-label">🔺 Máxima</div>
                 <div class="mini-valor" id="max-valor">...°C</div>
                 <div class="mini-hora" id="max-hora">--:--</div>
             </div>
             <div class="mini-card">
-                <div class="mini-label">🔹 Pico de Frio</div>
+                <div class="mini-label">🔹 Mínima</div>
                 <div class="mini-valor" id="min-valor">...°C</div>
                 <div class="mini-hora" id="min-hora">--:--</div>
             </div>
+            <div class="mini-card">
+                <div class="mini-label">📐 Incerteza (u)</div>
+                <div class="mini-valor" id="incerteza-valor">...°C</div>
+                <div class="mini-hora" id="incerteza-amostras">(N=0)</div>
+            </div>
         </div>
 
-        <button class="btn-reset" onclick="limparBancoComSenha()">
-            🗑️ Resetar Leituras do Banco
-        </button>
+        <div class="botoes-container">
+            <button class="btn-calc" onclick="calcularEAtualizar(true)">
+                ⚡ Recalcular Incerteza Agora
+            </button>
+
+            <button class="btn-reset" onclick="limparBancoComSenha()">
+                🗑️ Resetar Leituras do Banco
+            </button>
+        </div>
 
         <div class="footer-status">
             Desenvolvido por <strong>Raphael Furtado da Silva</strong><br>
@@ -283,7 +351,40 @@
         function formatarHora(dataISO) {
             if (!dataISO) return "--:--";
             const data = new Date(dataISO);
-            return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // CÁLCULO METROLÓGICO: INCERTEZA PADRÃO TIPO A (u = s / sqrt(N))
+        function calcularIncertezaTipoA(amostras) {
+            const n = amostras.length;
+            if (n < 2) return 0;
+
+            const media = amostras.reduce((acc, val) => acc + val, 0) / n;
+            const somaQuadrados = amostras.reduce((acc, val) => acc + Math.pow(val - media, 2), 0);
+            const desvioPadrao = Math.sqrt(somaQuadrados / (n - 1));
+            
+            return desvioPadrao / Math.sqrt(n);
+        }
+
+        // VERIFICA SE ESTÁ A MAIS DE 5 MINUTOS SEM RECEBER DADOS
+        function verificarStatusConexao() {
+            const bannerAlerta = document.getElementById('alerta-offline');
+
+            if (historico.length === 0) {
+                bannerAlerta.style.display = 'block';
+                return;
+            }
+
+            const ultimaLeitura = historico[historico.length - 1];
+            const dataUltimaLeitura = new Date(ultimaLeitura.created_at).getTime();
+            const agora = new Date().getTime();
+            const diferencaMinutos = (agora - dataUltimaLeitura) / (1000 * 60);
+
+            if (diferencaMinutos > 5) {
+                bannerAlerta.style.display = 'block';
+            } else {
+                bannerAlerta.style.display = 'none';
+            }
         }
 
         // CRIAÇÃO E CONFIGURAÇÃO DO GRÁFICO
@@ -325,28 +426,24 @@
 
         function atualizarGrafico() {
             if (!graficoChart) return;
-            // Pega as últimas 15 leituras para manter o gráfico legível no celular
             const ultimos = historico.slice(-15);
             graficoChart.data.labels = ultimos.map(item => formatarHora(item.created_at));
             graficoChart.data.datasets[0].data = ultimos.map(item => item.temperatura);
             graficoChart.update();
         }
 
-        function calcularEAtualizar() {
+        function calcularEAtualizar(manual = false) {
             if (historico.length > 0) {
                 const registroAtual = historico[historico.length - 1];
                 document.getElementById('temp-atual').innerText = registroAtual.temperatura.toFixed(1) + "°C";
+                document.getElementById('temp-hora').innerText = "Última leitura: " + formatarHora(registroAtual.created_at);
 
                 let maxObj = historico[0];
                 let minObj = historico[0];
 
                 for (let i = 1; i < historico.length; i++) {
-                    if (historico[i].temperatura > maxObj.temperatura) {
-                        maxObj = historico[i];
-                    }
-                    if (historico[i].temperatura < minObj.temperatura) {
-                        minObj = historico[i];
-                    }
+                    if (historico[i].temperatura > maxObj.temperatura) maxObj = historico[i];
+                    if (historico[i].temperatura < minObj.temperatura) minObj = historico[i];
                 }
 
                 document.getElementById('max-valor').innerText = maxObj.temperatura.toFixed(1) + "°C";
@@ -354,14 +451,36 @@
 
                 document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
                 document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
+
+                // --- CÁLCULO DA INCERTEZA (ÚLTIMAS 40 LEITURAS) ---
+                const ultimasAmostras = historico.slice(-40).map(item => item.temperatura);
+                const qtdAmostras = ultimasAmostras.length;
+
+                if (qtdAmostras >= 2) {
+                    const u = calcularIncertezaTipoA(ultimasAmostras);
+                    document.getElementById('incerteza-valor').innerText = "±" + u.toFixed(3) + "°C";
+                    document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
+                } else {
+                    document.getElementById('incerteza-valor').innerText = "--.-°C";
+                    document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
+                }
+
+                if (manual) {
+                    alert(`✅ Cálculo atualizado com sucesso!\nAmostras analisadas: ${qtdAmostras}`);
+                }
+
             } else {
                 document.getElementById('temp-atual').innerText = "...°C";
+                document.getElementById('temp-hora').innerText = "Última leitura: --:--";
                 document.getElementById('max-valor').innerText = "...°C";
                 document.getElementById('max-hora').innerText = "--:--";
                 document.getElementById('min-valor').innerText = "...°C";
                 document.getElementById('min-hora').innerText = "--:--";
+                document.getElementById('incerteza-valor').innerText = "...°C";
+                document.getElementById('incerteza-amostras').innerText = "(N=0)";
             }
 
+            verificarStatusConexao();
             atualizarGrafico();
         }
 
@@ -419,6 +538,9 @@
                 calcularEAtualizar();
             })
             .subscribe();
+
+        // Checa o status de conexão a cada 30 segundos
+        setInterval(verificarStatusConexao, 30000);
 
         // INICIALIZAÇÃO
         inicializarGrafico();
