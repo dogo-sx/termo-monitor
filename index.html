@@ -9,7 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* VISUAL INSPIRADO NO 1.1.1.1 (CLOUDFLARE WARP) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #101010;
@@ -47,7 +46,6 @@
             font-weight: 400;
         }
 
-        /* BANNER DE ALERTA (SEM SINAL) */
         .alerta-offline {
             display: none;
             background-color: #3d1414;
@@ -67,7 +65,6 @@
             100% { opacity: 1; }
         }
 
-        /* CARD PRINCIPAL - TEMPERATURA ATUAL */
         .card-principal {
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
@@ -106,7 +103,6 @@
             font-weight: 500;
         }
 
-        /* CARD DO GRÁFICO */
         .card-grafico {
             background-color: #161616;
             border: 1px solid #222222;
@@ -131,7 +127,6 @@
             width: 100%;
         }
 
-        /* GRID DE ESTATÍSTICAS (3 COLUNAS) */
         .grid-status {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -201,11 +196,11 @@
             border-color: #00d2ff;
         }
 
-        .btn-reset {
+        .btn-novo-monitoramento {
             width: 100%;
-            background-color: #221515;
-            color: #ff5252;
-            border: 1px solid #3a1c1c;
+            background-color: #261f10;
+            color: #fbc02d;
+            border: 1px solid #423214;
             padding: 12px 20px;
             font-size: 13px;
             font-weight: 700;
@@ -214,13 +209,13 @@
             transition: all 0.2s ease;
         }
 
-        .btn-reset:hover {
-            background-color: #ff5252;
-            color: #ffffff;
-            border-color: #ff5252;
+        .btn-novo-monitoramento:hover {
+            background-color: #fbc02d;
+            color: #101010;
+            border-color: #fbc02d;
         }
 
-        .btn-calc:active, .btn-reset:active {
+        .btn-calc:active, .btn-novo-monitoramento:active {
             transform: scale(0.98);
         }
 
@@ -309,8 +304,8 @@
                 ⚡ Recalcular Incerteza Agora
             </button>
 
-            <button class="btn-reset" onclick="limparBancoComSenha()">
-                🗑️ Resetar Leituras do Banco
+            <button class="btn-novo-monitoramento" onclick="iniciarNovoMonitoramento()">
+                🔄 Iniciar Novo Monitoramento
             </button>
         </div>
 
@@ -339,16 +334,13 @@
     </div>
 
     <script>
-        const SENHA_MESTRA = "0101";
-
         const SUPABASE_URL = "https://wfhwtuopsyzdygmzxhay.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaHd0dW9wc3l6ZHlnbXp4aGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzQ5NTgsImV4cCI6MjEwMDExMDk1OH0._MrU4Ho80BTBZVI-Bmf_H_F9HnEJ082jC-9HwswQn2A";
+        const SUPABASE_KEY = "SUA_NOVA_CHAVE_ANON_AQUI";
 
-        // RESOLUÇÃO DO DS18B20 EM 12 BITS (0.0625 °C)
         const RESOLUCAO_SENSOR = 0.0625;
 
         const bancoDados = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        let historico = [];
+        let historicoGeral = [];
         let graficoChart = null;
 
         function formatarHora(dataISO) {
@@ -357,11 +349,18 @@
             return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        // CÁLCULO METROLÓGICO: INCERTEZA COMBINADA (Tipo A + Tipo B)
+        // RETORNA APENAS AS LEITURAS A PARTIR DO INÍCIO DO NOVO MONITORAMENTO
+        function obterHistoricoFiltrado() {
+            const inicioSessao = localStorage.getItem('inicio_sessao_monitoramento');
+            if (!inicioSessao) return historicoGeral;
+
+            const dataInicio = new Date(inicioSessao).getTime();
+            return historicoGeral.filter(item => new Date(item.created_at).getTime() >= dataInicio);
+        }
+
         function calcularIncertezaCombinada(amostras) {
             const n = amostras.length;
             
-            // 1. Incerteza do Tipo A (Estatística)
             let ua = 0;
             if (n >= 2) {
                 const media = amostras.reduce((acc, val) => acc + val, 0) / n;
@@ -370,37 +369,28 @@
                 ua = desvioPadrao / Math.sqrt(n);
             }
 
-            // 2. Incerteza do Tipo B (Resolução do Sensor em 12-bits - Distribuição Retangular)
-            const ub = RESOLUCAO_SENSOR / Math.sqrt(12); // aprox 0.01804 °C
+            const semiIntervalo = RESOLUCAO_SENSOR / 2;
+            const ub = semiIntervalo / Math.sqrt(3);
 
-            // 3. Incerteza Combinada uc = sqrt(ua² + ub²)
             const uc = Math.sqrt(Math.pow(ua, 2) + Math.pow(ub, 2));
-
             return uc;
         }
 
-        // FORMATAÇÃO AUTOMÁTICA DA INCERTEZA
         function formatarIncerteza(valor) {
             if (valor === 0) return "--.-°C";
-            
-            // Se o valor for muito pequeno (< 0.001), exibe em Notação Científica
-            if (valor < 0.001) {
-                return "±" + valor.toExponential(2) + "°C";
-            }
-            
+            if (valor < 0.001) return "±" + valor.toExponential(2) + "°C";
             return "±" + valor.toFixed(3) + "°C";
         }
 
-        // VERIFICA SE ESTÁ A MAIS DE 5 MINUTOS SEM RECEBER DADOS
         function verificarStatusConexao() {
             const bannerAlerta = document.getElementById('alerta-offline');
 
-            if (historico.length === 0) {
+            if (historicoGeral.length === 0) {
                 bannerAlerta.style.display = 'block';
                 return;
             }
 
-            const ultimaLeitura = historico[historico.length - 1];
+            const ultimaLeitura = historicoGeral[historicoGeral.length - 1];
             const dataUltimaLeitura = new Date(ultimaLeitura.created_at).getTime();
             const agora = new Date().getTime();
             const diferencaMinutos = (agora - dataUltimaLeitura) / (1000 * 60);
@@ -412,7 +402,6 @@
             }
         }
 
-        // CRIAÇÃO E CONFIGURAÇÃO DO GRÁFICO
         function inicializarGrafico() {
             const canvas = document.getElementById('graficoTemperatura');
             if (!canvas) return;
@@ -449,26 +438,28 @@
             });
         }
 
-        function atualizarGrafico() {
+        function atualizarGrafico(historicoFiltrado) {
             if (!graficoChart) return;
-            const ultimos = historico.slice(-15);
+            const ultimos = historicoFiltrado.slice(-15);
             graficoChart.data.labels = ultimos.map(item => formatarHora(item.created_at));
             graficoChart.data.datasets[0].data = ultimos.map(item => item.temperatura);
             graficoChart.update();
         }
 
         function calcularEAtualizar(manual = false) {
-            if (historico.length > 0) {
-                const registroAtual = historico[historico.length - 1];
+            const historicoFiltrado = obterHistoricoFiltrado();
+
+            if (historicoFiltrado.length > 0) {
+                const registroAtual = historicoFiltrado[historicoFiltrado.length - 1];
                 document.getElementById('temp-atual').innerText = registroAtual.temperatura.toFixed(1) + "°C";
                 document.getElementById('temp-hora').innerText = "Última leitura: " + formatarHora(registroAtual.created_at);
 
-                let maxObj = historico[0];
-                let minObj = historico[0];
+                let maxObj = historicoFiltrado[0];
+                let minObj = historicoFiltrado[0];
 
-                for (let i = 1; i < historico.length; i++) {
-                    if (historico[i].temperatura > maxObj.temperatura) maxObj = historico[i];
-                    if (historico[i].temperatura < minObj.temperatura) minObj = historico[i];
+                for (let i = 1; i < historicoFiltrado.length; i++) {
+                    if (historicoFiltrado[i].temperatura > maxObj.temperatura) maxObj = historicoFiltrado[i];
+                    if (historicoFiltrado[i].temperatura < minObj.temperatura) minObj = historicoFiltrado[i];
                 }
 
                 document.getElementById('max-valor').innerText = maxObj.temperatura.toFixed(1) + "°C";
@@ -477,8 +468,7 @@
                 document.getElementById('min-valor').innerText = minObj.temperatura.toFixed(1) + "°C";
                 document.getElementById('min-hora').innerText = "às " + formatarHora(minObj.created_at);
 
-                // --- CÁLCULO DA INCERTEZA COMBINADA (N = TOTAL DE AMOSTRAS) ---
-                const amostras = historico.map(item => item.temperatura);
+                const amostras = historicoFiltrado.map(item => item.temperatura);
                 const qtdAmostras = amostras.length;
 
                 const uc = calcularIncertezaCombinada(amostras);
@@ -486,12 +476,12 @@
                 document.getElementById('incerteza-amostras').innerText = `(N=${qtdAmostras})`;
 
                 if (manual) {
-                    alert(`✅ Incerteza Combinada Recalculada!\nAmostras analisadas (N): ${qtdAmostras}\nIncerteza Combinada (uc): ${formatarIncerteza(uc)}`);
+                    alert(`✅ Incerteza Recalculada para a Sessão Atual!\nAmostras analisadas (N): ${qtdAmostras}\nIncerteza Combinada (uc): ${formatarIncerteza(uc)}`);
                 }
 
             } else {
                 document.getElementById('temp-atual').innerText = "...°C";
-                document.getElementById('temp-hora').innerText = "Última leitura: --:--";
+                document.getElementById('temp-hora').innerText = "Aguardando nova leitura...";
                 document.getElementById('max-valor').innerText = "...°C";
                 document.getElementById('max-hora').innerText = "--:--";
                 document.getElementById('min-valor').innerText = "...°C";
@@ -501,7 +491,17 @@
             }
 
             verificarStatusConexao();
-            atualizarGrafico();
+            atualizarGrafico(historicoFiltrado);
+        }
+
+        // FUNÇÃO QUE INICIA A NOVA SESSÃO DE MONITORAMENTO
+        function iniciarNovoMonitoramento() {
+            if (confirm("🔄 Deseja iniciar uma nova sessão de monitoramento?\n\nOs indicadores e o gráfico passarão a considerar apenas as leituras recebidas a partir de agora.")) {
+                const agoraISO = new Date().toISOString();
+                localStorage.setItem('inicio_sessao_monitoramento', agoraISO);
+                calcularEAtualizar();
+                alert("🚀 Nova sessão iniciada com sucesso! Aguardando as próximas medições do ESP32.");
+            }
         }
 
         async function carregarDadosIniciais() {
@@ -509,40 +509,13 @@
                 .from('leituras')
                 .select('*')
                 .order('created_at', { ascending: true })
-                .limit(100);
+                .limit(200);
 
             if (data && data.length > 0) {
-                historico = data;
+                historicoGeral = data;
                 calcularEAtualizar();
             } else if (error) {
                 console.error("Erro ao conectar ao banco:", error);
-            }
-        }
-
-        async function limparBancoComSenha() {
-            const senhaInserida = prompt("🔒 Ação Restrita! Digite a senha mestra para apagar o banco:");
-
-            if (senhaInserida === null) return;
-
-            if (senhaInserida.trim() !== SENHA_MESTRA) {
-                alert("❌ Senha incorreta! Operação cancelada.");
-                return;
-            }
-
-            if (!confirm("⚠️ Atenção: Tem certeza de que deseja apagar permanentemente todas as leituras?")) return;
-
-            const { error } = await bancoDados
-                .from('leituras')
-                .delete()
-                .neq('temperatura', -999);
-
-            if (error) {
-                alert("❌ Erro ao apagar dados. Verifique a permissão RLS da tabela no Supabase.");
-                console.error(error);
-            } else {
-                alert("✅ Registros do banco apagados com sucesso!");
-                historico = [];
-                calcularEAtualizar();
             }
         }
 
@@ -550,19 +523,13 @@
         bancoDados
             .channel('custom-insert-channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leituras' }, (payload) => {
-                historico.push(payload.new);
-                calcularEAtualizar();
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'leituras' }, () => {
-                historico = [];
+                historicoGeral.push(payload.new);
                 calcularEAtualizar();
             })
             .subscribe();
 
-        // Checa o status de conexão a cada 30 segundos
         setInterval(verificarStatusConexao, 30000);
 
-        // INICIALIZAÇÃO
         inicializarGrafico();
         carregarDadosIniciais();
     </script>
