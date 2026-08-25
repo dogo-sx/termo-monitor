@@ -498,13 +498,29 @@
             atualizarGrafico(historicoFiltrado);
         }
 
-        // FUNÇÃO QUE INICIA A NOVA SESSÃO DE MONITORAMENTO
-        function iniciarNovoMonitoramento() {
-            if (confirm("🔄 Deseja iniciar uma nova sessão de monitoramento?\n\nOs indicadores e o gráfico passarão a considerar apenas as leituras recebidas a partir de agora.")) {
+        // FUNÇÃO QUE VALIDA A SENHA NO SUPABASE E INICIA A NOVA SESSÃO
+        async function iniciarNovoMonitoramento() {
+            const senhaDigitada = prompt("🔑 Digite a senha para autorizar o novo monitoramento:");
+            
+            if (senhaDigitada === null) return; // Usuário cancelou
+
+            if (!senhaDigitada.trim()) {
+                alert("⚠️ A senha não pode estar em branco.");
+                return;
+            }
+
+            // Valida a senha executando a função SQL (RPC) no Supabase
+            const { error } = await bancoDados.rpc('iniciar_novo_monitoramento', {
+                senha_informada: senhaDigitada
+            });
+
+            if (error) {
+                alert("❌ Senha incorreta! Ação não autorizada.");
+            } else {
                 const agoraISO = new Date().toISOString();
                 localStorage.setItem('inicio_sessao_monitoramento', agoraISO);
                 calcularEAtualizar();
-                alert("🚀 Nova sessão iniciada com sucesso! Aguardando as próximas medições do ESP32.");
+                alert("🚀 Nova sessão iniciada com sucesso!");
             }
         }
 
