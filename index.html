@@ -499,30 +499,30 @@
         }
 
         // FUNÇÃO QUE VALIDA A SENHA NO SUPABASE E INICIA A NOVA SESSÃO
-        async function iniciarNovoMonitoramento() {
-            const senhaDigitada = prompt("🔑 Digite a senha para autorizar o novo monitoramento:");
-            
-            if (senhaDigitada === null) return; // Usuário cancelou
+     async function iniciarNovoMonitoramento() {
+    const senhaDigitada = prompt("🔑 Digite a senha para autorizar o novo monitoramento:");
+    
+    if (senhaDigitada === null) return;
 
-            if (!senhaDigitada.trim()) {
-                alert("⚠️ A senha não pode estar em branco.");
-                return;
-            }
+    if (!senhaDigitada.trim()) {
+        alert("⚠️ A senha não pode estar em branco.");
+        return;
+    }
 
-            // Valida a senha executando a função SQL (RPC) no Supabase
-            const { error } = await bancoDados.rpc('iniciar_novo_monitoramento', {
-                senha_informada: senhaDigitada
-            });
+    const { error } = await bancoDados.rpc('iniciar_novo_monitoramento', {
+        senha_informada: senhaDigitada.trim()
+    });
 
-            if (error) {
-                alert("❌ Senha incorreta! Ação não autorizada.");
-            } else {
-                const agoraISO = new Date().toISOString();
-                localStorage.setItem('inicio_sessao_monitoramento', agoraISO);
-                calcularEAtualizar();
-                alert("🚀 Nova sessão iniciada com sucesso!");
-            }
-        }
+    if (error) {
+        // Exibe o motivo exato retornado pelo Supabase (ex: "Senha incorreta" ou erro de permissão)
+        alert("❌ " + error.message);
+    } else {
+        const agoraISO = new Date().toISOString();
+        localStorage.setItem('inicio_sessao_monitoramento', agoraISO);
+        calcularEAtualizar();
+        alert("🚀 Nova sessão iniciada com sucesso!");
+    }
+}
 
         async function carregarDadosIniciais() {
             let { data, error } = await bancoDados
